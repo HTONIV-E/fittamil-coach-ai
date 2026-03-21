@@ -12,9 +12,15 @@ import { BMICalculator } from '@/components/pages/BMICalculator';
 import { AICoach } from '@/components/pages/AICoach';
 import { ProfilePage } from '@/components/pages/ProfilePage';
 import { MyPlan } from '@/components/pages/MyPlan';
+import { MealPlanner } from '@/components/pages/MealPlanner';
+import { Recipes } from '@/components/pages/Recipes';
+import { Challenges } from '@/components/pages/Challenges';
+import { TipsBreathing } from '@/components/pages/TipsBreathing';
+import { ProgressPage } from '@/components/pages/ProgressPage';
 import { UserProfile, AIPlan } from '@/types/fitness';
 import { Toaster } from '@/components/ui/sonner';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 const PAGE_TITLES: Record<string, string> = {
   dashboard: 'Dashboard', myplan: 'My Plan', meals: "Today's Meals",
@@ -85,14 +91,30 @@ const Index = () => {
     data.updateDaily(d => ({ ...d, foodLog: d.foodLog.filter((_, i) => i !== index) }));
   };
 
-  const handleRegenerate = () => {
-    const newPlan = generatePlan(profile);
-    data.setPlan(newPlan);
-    toast.success('Plan regenerated! 🤖');
+  const handleRegenerate = async () => {
+    toast.loading('Regenerating your plan with AI...', { id: 'regen' });
+    try {
+      const { data: result, error } = await supabase.functions.invoke('generate-plan', {
+        body: { profile },
+      });
+      if (error || !result?.plan) {
+        console.warn('AI regen failed, using local:', error);
+        const newPlan = generatePlan(profile);
+        data.setPlan(newPlan);
+      } else {
+        data.setPlan(result.plan as AIPlan);
+      }
+      toast.success('Plan regenerated! 🤖', { id: 'regen' });
+    } catch {
+      const newPlan = generatePlan(profile);
+      data.setPlan(newPlan);
+      toast.success('Plan regenerated! 🤖', { id: 'regen' });
+    }
   };
 
-  const profileSummary = `${profile.name}, ${profile.age}yo ${profile.gender}, ${profile.weight}kg targeting ${profile.targetWeight}kg, ${profile.fitnessGoal} goal, ${profile.dietType} diet`;
-  const dailySummary = `Today: ${Object.values(daily.meals).filter(Boolean).length} meals, ${daily.water} glasses water, ${Object.values(daily.workout).filter(Boolean).length} exercises`;
+  const profileSummary = `${profile.name}, ${profile.age}yo ${profile.gender}, ${profile.weight}kg targeting ${profile.targetWeight}kg, ${profile.fitnessGoal} goal, ${profile.dietType} diet, ${profile.region} region, conditions: ${profile.conditions.join(', ')}`;
+  const dailySummary = `Today: ${Object.values(daily.meals).filter(Boolean).length} meals done, ${daily.water} glasses water, ${Object.values(daily.workout).filter(Boolean).length} exercises done, mood: ${daily.mood || 'not set'}, energy: ${daily.energy}/10`;
+  const planSummary = `Target: ${plan.dailyCalories}kcal, ${plan.dailyWater}ml water, ${plan.meals.length} meals, BMI ${plan.currentBMI}→${plan.targetBMI}`;
 
   const renderPage = () => {
     switch (page) {
@@ -103,30 +125,35 @@ const Index = () => {
         return <MyPlan plan={plan} onRegenerate={handleRegenerate} />;
       case 'meals':
         return <TodaysMeals plan={plan} daily={daily} onToggleMeal={handleToggleMeal} onToggleHabit={handleToggleHabit} />;
+      case 'mealplanner':
+        return <MealPlanner plan={plan} />;
+      case 'recipes':
+        return <Recipes />;
       case 'workout':
         return <TodaysWorkout plan={plan} daily={daily} onToggleExercise={handleToggleExercise} onToggleCore={handleToggleCore} />;
+      case 'challenges':
+        return <Challenges />;
       case 'water':
         return <WaterFasting plan={plan} daily={daily} glassSize={data.glassSize} onAddWater={handleAddWater} onRemoveWater={handleRemoveWater} onToggleAmla={handleToggleAmla} />;
+      case 'tips':
+        return <TipsBreathing plan={plan} />;
       case 'calories':
         return <CalorieCounter plan={plan} daily={daily} onAddFood={handleAddFood} onRemoveFood={handleRemoveFood} />;
       case 'bmi':
         return <BMICalculator profile={profile} onSaveBMI={data.addBMI} bmiHistory={data.bmiHistory} />;
       case 'coach':
-        return <AICoach profileSummary={profileSummary} dailySummary={dailySummary} />;
+        return <AICoach profileSummary={profileSummary} dailySummary={dailySummary} planSummary={planSummary} />;
       case 'profile':
         return <ProfilePage profile={profile} onUpdateProfile={data.updateProfile}
           theme={data.theme} onSetTheme={data.setTheme} onRegeneratePlan={handleRegenerate}
           daily={{ mood: daily.mood, energy: daily.energy }}
           onUpdateDaily={(mood, energy) => data.updateDaily(d => ({ ...d, mood, energy }))} />;
+      case 'progress':
+        return <ProgressPage profile={profile} plan={plan} bmiHistory={data.bmiHistory}
+          measurements={data.measurements} streak={data.streak} bestStreak={data.bestStreak}
+          weekMeals={data.weekMeals} workoutHistory={data.workoutHistory} />;
       default:
-        return (
-          <div className="flex flex-col items-center justify-center min-h-[50vh] text-center space-y-4">
-            <span className="text-5xl">🚧</span>
-            <h3 className="font-heading text-2xl">{PAGE_TITLES[page] || page}</h3>
-            <p className="text-sm text-muted-foreground">Coming soon!</p>
-            <button onClick={() => setPage('dashboard')} className="text-ft-cyan text-sm underline">← Back to Dashboard</button>
-          </div>
-        );
+        return null;
     }
   };
 

@@ -1,10 +1,13 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { GradientButton } from '@/components/shared/GradientButton';
 import { Bot, Send, Trash2, Sparkles, BarChart3 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 interface AICoachProps {
   profileSummary: string;
   dailySummary: string;
+  planSummary?: string;
 }
 
 interface ChatMsg {
@@ -23,24 +26,10 @@ const QUICK_PROMPTS = [
   "What is my biggest weakness?",
 ];
 
-function generateResponse(msg: string, profileSummary: string, dailySummary: string): string {
-  const lower = msg.toLowerCase();
-  if (lower.includes('belly') || lower.includes('stomach')) {
-    return `Based on your profile, belly fat reduction needs consistency. Focus on:\n\n1. **Core exercises daily** — crunches, planks, mountain climbers\n2. **Reduce rice at dinner** — switch to chapati or millets\n3. **Walk 10 min after meals** — this specifically targets visceral fat\n4. **Drink amla water** morning — boosts metabolism\n\nSpot reduction is a myth, but these habits target overall fat loss which shows first on your belly. Keep your calorie deficit consistent!\n\n*${dailySummary}*`;
-  }
-  if (lower.includes('protein')) {
-    return `For your goals, you need about **1.2-1.6g protein per kg** body weight daily. Tamil diet protein sources:\n\n🥚 Eggs — 6g each\n🐓 Chicken — 31g per 100g\n🐟 Fish — 22g per 100g\n🫘 Dal — 9g per cup\n🥜 Peanuts — 26g per 100g\n🫗 Paneer — 18g per 100g\n\nAdd sundal, buttermilk, and boiled eggs as snacks. Your current plan should cover this if followed consistently!`;
-  }
-  if (lower.includes('motivation') || lower.includes('motivate')) {
-    return `💪 **உடல் நலமே உயர்ந்த செல்வம்** — Health is the greatest wealth!\n\nRemember why you started this journey. Every meal you choose wisely, every workout you complete — it compounds.\n\nYour body hears everything your mind says. Stay positive!\n\n🔥 You have the discipline. You're already ahead of 90% of people by tracking your health!\n\n*Keep going, champion!*`;
-  }
-  if (lower.includes('sleep')) {
-    return `Sleep is CRUCIAL for fitness! Here's why:\n\n😴 **Poor sleep = higher cortisol = belly fat storage**\n🔄 **Recovery happens during deep sleep** — muscles repair\n🍽️ **Sleep deprivation increases hunger hormones**\n\nTamil wellness tips:\n- Drink turmeric milk 30 min before bed\n- No screen time 1 hour before sleep\n- Try the 4-2-6 breathing exercise\n- Keep your room cool and dark\n\nAim for 7-8 hours consistently!`;
-  }
-  return `Great question! Here's my advice based on your profile:\n\n${profileSummary}\n\nKey recommendations:\n1. Stay consistent with your meal plan\n2. Track your water intake — it's crucial for Tamil Nadu's climate\n3. Don't skip your morning amla water\n4. Walk after meals for better digestion\n\nWould you like me to analyse a specific aspect of your journey? 💪`;
-}
+const CHAT_URL = `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/chat`;
+const ANALYSE_URL = `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/analyse-day`;
 
-export function AICoach({ profileSummary, dailySummary }: AICoachProps) {
+export function AICoach({ profileSummary, dailySummary, planSummary }: AICoachProps) {
   const [mode, setMode] = useState<'chat' | 'analyse'>('chat');
   const [messages, setMessages] = useState<ChatMsg[]>([
     { role: 'assistant', content: '🤖 Vanakkam! I\'m Coach Tamil, your AI fitness coach. Ask me anything about your diet, workout, or wellness journey!' }
@@ -49,53 +38,110 @@ export function AICoach({ profileSummary, dailySummary }: AICoachProps) {
   const [typing, setTyping] = useState(false);
   const [analysis, setAnalysis] = useState<string | null>(null);
   const [analysing, setAnalysing] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, typing]);
 
   const sendMessage = async (text: string) => {
-    if (!text.trim()) return;
-    setMessages(prev => [...prev, { role: 'user', content: text }]);
+    if (!text.trim() || typing) return;
+    const userMsg: ChatMsg = { role: 'user', content: text };
+    setMessages(prev => [...prev, userMsg]);
     setInput('');
     setTyping(true);
-    await new Promise(r => setTimeout(r, 1000 + Math.random() * 1000));
-    const response = generateResponse(text, profileSummary, dailySummary);
-    setMessages(prev => [...prev, { role: 'assistant', content: response }]);
-    setTyping(false);
+
+    try {
+      const apiMessages = [...messages.slice(-12), userMsg].map(m => ({
+        role: m.role, content: m.content,
+      }));
+
+      const resp = await fetch(CHAT_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({
+          messages: apiMessages,
+          context: `${profileSummary}\n${dailySummary}`,
+        }),
+      });
+
+      if (!resp.ok) {
+        const errData = await resp.json().catch(() => ({}));
+        throw new Error(errData.error || 'Chat failed');
+      }
+
+      if (!resp.body) throw new Error('No stream body');
+
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let assistantSoFar = '';
+      let textBuffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        textBuffer += decoder.decode(value, { stream: true });
+
+        let newlineIndex: number;
+        while ((newlineIndex = textBuffer.indexOf('\n')) !== -1) {
+          let line = textBuffer.slice(0, newlineIndex);
+          textBuffer = textBuffer.slice(newlineIndex + 1);
+          if (line.endsWith('\r')) line = line.slice(0, -1);
+          if (line.startsWith(':') || line.trim() === '') continue;
+          if (!line.startsWith('data: ')) continue;
+          const jsonStr = line.slice(6).trim();
+          if (jsonStr === '[DONE]') break;
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const content = parsed.choices?.[0]?.delta?.content;
+            if (content) {
+              assistantSoFar += content;
+              setMessages(prev => {
+                const last = prev[prev.length - 1];
+                if (last?.role === 'assistant' && prev.length > 1 && prev[prev.length - 2]?.role === 'user') {
+                  return prev.map((m, i) => i === prev.length - 1 ? { ...m, content: assistantSoFar } : m);
+                }
+                return [...prev, { role: 'assistant', content: assistantSoFar }];
+              });
+            }
+          } catch {
+            textBuffer = line + '\n' + textBuffer;
+            break;
+          }
+        }
+      }
+
+      if (!assistantSoFar) {
+        setMessages(prev => [...prev, { role: 'assistant', content: 'I couldn\'t generate a response. Please try again.' }]);
+      }
+    } catch (err: any) {
+      console.error('Chat error:', err);
+      toast.error(err.message || 'Chat failed');
+      setMessages(prev => [...prev, { role: 'assistant', content: '⚠️ Sorry, I had trouble connecting. Please try again.' }]);
+    } finally {
+      setTyping(false);
+    }
   };
 
   const runAnalysis = async () => {
     setAnalysing(true);
-    await new Promise(r => setTimeout(r, 2000));
-    setAnalysis(`## 📊 Day Analysis
+    try {
+      const { data, error } = await supabase.functions.invoke('analyse-day', {
+        body: { profileSummary, dailySummary, planSummary: planSummary || '' },
+      });
 
-**Score: 7.2/10**
-
-| Category | Score |
-|----------|-------|
-| 🍽️ Meals | 7/10 |
-| 💪 Workout | 8/10 |
-| 💧 Hydration | 6/10 |
-| 🧘 Wellness | 8/10 |
-
-### ✅ Done Well
-1. Completed morning workout consistently
-2. Followed Tamil meal plan for breakfast & lunch
-3. Maintained good sleep schedule
-
-### ⚠️ To Improve
-1. Water intake below target — increase by 3 glasses
-2. Skipped evening snack — sundal would be ideal
-3. Added extra rice at dinner — try chapati tomorrow
-
-### 🎯 Priority Action RIGHT NOW
-**Drink 2 glasses of water** and do a 5-minute stretching session.
-
-### 📈 Weekly Insight
-You're showing steady progress this week. Consistency in meals has improved by 20% compared to last week.
-
-### 🌿 Tamil Wellness Tips
-1. Add curry leaves to your morning water — great for metabolism
-2. Eat a banana before your evening walk for sustained energy
-3. Try ragi kanji for breakfast twice this week — excellent nutrition`);
-    setAnalysing(false);
+      if (error) throw error;
+      setAnalysis(data?.analysis || 'Analysis could not be generated.');
+    } catch (err: any) {
+      console.error('Analysis error:', err);
+      toast.error('Analysis failed. Please try again.');
+      setAnalysis(null);
+    } finally {
+      setAnalysing(false);
+    }
   };
 
   return (
@@ -114,7 +160,6 @@ You're showing steady progress this week. Consistency in meals has improved by 2
 
       {mode === 'chat' ? (
         <>
-          {/* Chat Messages */}
           <div className="space-y-3 min-h-[40vh] max-h-[55vh] overflow-y-auto">
             {messages.map((msg, i) => (
               <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -126,7 +171,7 @@ You're showing steady progress this week. Consistency in meals has improved by 2
                 </div>
               </div>
             ))}
-            {typing && (
+            {typing && messages[messages.length - 1]?.role !== 'assistant' && (
               <div className="flex justify-start">
                 <div className="bg-muted rounded-2xl rounded-bl-sm px-4 py-3">
                   <div className="flex gap-1.5">
@@ -137,9 +182,9 @@ You're showing steady progress this week. Consistency in meals has improved by 2
                 </div>
               </div>
             )}
+            <div ref={messagesEndRef} />
           </div>
 
-          {/* Quick Prompts */}
           <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4">
             {QUICK_PROMPTS.map(prompt => (
               <button key={prompt} onClick={() => sendMessage(prompt)}
@@ -149,7 +194,6 @@ You're showing steady progress this week. Consistency in meals has improved by 2
             ))}
           </div>
 
-          {/* Input */}
           <div className="flex gap-2">
             <input
               value={input}
@@ -158,7 +202,7 @@ You're showing steady progress this week. Consistency in meals has improved by 2
               placeholder="Ask Coach Tamil..."
               className="flex-1 rounded-xl border border-border bg-card px-4 py-3 text-sm placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
             />
-            <button onClick={() => sendMessage(input)} disabled={!input.trim()}
+            <button onClick={() => sendMessage(input)} disabled={!input.trim() || typing}
               className="gradient-primary h-12 w-12 rounded-xl flex items-center justify-center active:scale-95 disabled:opacity-50">
               <Send className="h-5 w-5 text-background" />
             </button>
@@ -192,8 +236,12 @@ You're showing steady progress this week. Consistency in meals has improved by 2
           )}
 
           {analysis && (
-            <div className="ft-card text-sm whitespace-pre-wrap space-y-2">
-              {analysis}
+            <div className="space-y-3">
+              <div className="ft-card text-sm whitespace-pre-wrap">{analysis}</div>
+              <button onClick={() => { setAnalysis(null); }}
+                className="w-full text-center text-sm text-ft-cyan py-2">
+                Run New Analysis
+              </button>
             </div>
           )}
         </>
