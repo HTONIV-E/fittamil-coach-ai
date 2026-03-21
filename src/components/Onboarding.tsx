@@ -52,12 +52,37 @@ export function Onboarding({ onComplete }: OnboardingProps) {
       'Setting your 12-week milestones...',
       'Finalising your personalised coaching...',
     ];
-    for (let i = 0; i < steps.length; i++) {
+    
+    // Start AI generation
+    const aiPromise = supabase.functions.invoke('generate-plan', {
+      body: { profile },
+    });
+
+    // Animate steps while waiting
+    for (let i = 0; i < steps.length - 1; i++) {
       setGenStep(i);
-      await new Promise(r => setTimeout(r, 800));
+      await new Promise(r => setTimeout(r, 1200));
     }
-    const plan = generatePlan(profile);
-    onComplete(profile, plan);
+
+    try {
+      const { data, error } = await aiPromise;
+      setGenStep(4);
+      
+      if (error || !data?.plan) {
+        console.warn('AI generation failed, using local fallback:', error);
+        const fallbackPlan = generatePlan(profile);
+        await new Promise(r => setTimeout(r, 500));
+        onComplete(profile, fallbackPlan);
+        return;
+      }
+
+      await new Promise(r => setTimeout(r, 500));
+      onComplete(profile, data.plan as AIPlan);
+    } catch (err) {
+      console.warn('AI generation error, using local fallback:', err);
+      const fallbackPlan = generatePlan(profile);
+      onComplete(profile, fallbackPlan);
+    }
   };
 
   if (generating) {
