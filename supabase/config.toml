@@ -1,0 +1,10 @@
+project_id = "pumnavuokwphetzqdtiu"
+
+[functions.generate-plan]
+verify_jwt = false
+
+[functions.chat]
+verify_jwt = false
+
+[functions.analyse-day]
+verify_jwt = false
