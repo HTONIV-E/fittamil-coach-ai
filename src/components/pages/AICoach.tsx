@@ -26,8 +26,7 @@ const QUICK_PROMPTS = [
   "What is my biggest weakness?",
 ];
 
-const CHAT_URL = `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/chat`;
-const ANALYSE_URL = `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/analyse-day`;
+const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
 
 export function AICoach({ profileSummary, dailySummary, planSummary }: AICoachProps) {
   const [mode, setMode] = useState<'chat' | 'analyse'>('chat');
