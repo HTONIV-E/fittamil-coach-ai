@@ -5,6 +5,7 @@ import { SelectCard } from '@/components/shared/SelectCard';
 import { Chip } from '@/components/shared/Chip';
 import { generatePlan } from '@/hooks/usePlanGenerator';
 import { AIPlan } from '@/types/fitness';
+import { supabase } from '@/integrations/supabase/client';
 
 interface OnboardingProps {
   onComplete: (profile: UserProfile, plan: AIPlan) => void;
