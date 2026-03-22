@@ -1,0 +1,68 @@
+name: Build Debug APK
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Patch capacitor config for local build
+        run: |
+          cat > capacitor.config.ts << 'CAPEOF'
+          import type { CapacitorConfig } from '@capacitor/cli';
+
+          const config: CapacitorConfig = {
+            appId: 'app.lovable.febe5994c3584c7ba8a8888c31a7f881',
+            appName: 'FitTamil AI',
+            webDir: 'dist',
+          };
+
+          export default config;
+          CAPEOF
+
+      - name: Build web app
+        run: npm run build
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Add Android platform
+        run: npx cap add android
+
+      - name: Capacitor sync
+        run: npx cap sync android
+
+      - name: Grant Gradle execute permission
+        run: chmod +x android/gradlew
+
+      - name: Build Debug APK
+        run: |
+          cd android
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: FitTamil-AI-debug
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30
