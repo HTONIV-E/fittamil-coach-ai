@@ -81,6 +81,8 @@ export interface DailyData {
   energy: number;
   foodLog: { name: string; calories: number }[];
   habitsDone: string[];
+  customMeals?: Meal[];
+  mealEdits?: Record<string, Partial<Meal>>;
 }
 
 export interface Measurement {

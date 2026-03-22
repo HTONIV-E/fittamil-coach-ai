@@ -17,7 +17,7 @@ import { Recipes } from '@/components/pages/Recipes';
 import { Challenges } from '@/components/pages/Challenges';
 import { TipsBreathing } from '@/components/pages/TipsBreathing';
 import { ProgressPage } from '@/components/pages/ProgressPage';
-import { UserProfile, AIPlan } from '@/types/fitness';
+import { UserProfile, AIPlan, Meal } from '@/types/fitness';
 import { Toaster } from '@/components/ui/sonner';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -84,11 +84,31 @@ const Index = () => {
 
   const handleAddFood = (name: string, calories: number) => {
     data.updateDaily(d => ({ ...d, foodLog: [...d.foodLog, { name, calories }] }));
-    toast.success(`Added ${name}`);
   };
 
   const handleRemoveFood = (index: number) => {
     data.updateDaily(d => ({ ...d, foodLog: d.foodLog.filter((_, i) => i !== index) }));
+  };
+
+  const handleAddCustomMeal = (meal: Meal) => {
+    data.updateDaily(d => ({ ...d, customMeals: [...(d.customMeals || []), meal] }));
+    toast.success(`Added ${meal.name}`);
+  };
+
+  const handleRemoveCustomMeal = (id: string) => {
+    data.updateDaily(d => ({
+      ...d,
+      customMeals: (d.customMeals || []).filter(m => m.id !== id),
+      meals: { ...d.meals, [id]: undefined } as any,
+    }));
+  };
+
+  const handleEditMeal = (id: string, updates: Partial<Meal>) => {
+    data.updateDaily(d => ({
+      ...d,
+      mealEdits: { ...(d.mealEdits || {}), [id]: updates },
+    }));
+    toast.success('Meal updated');
   };
 
   const handleRegenerate = async () => {
@@ -124,7 +144,8 @@ const Index = () => {
       case 'myplan':
         return <MyPlan plan={plan} onRegenerate={handleRegenerate} />;
       case 'meals':
-        return <TodaysMeals plan={plan} daily={daily} onToggleMeal={handleToggleMeal} onToggleHabit={handleToggleHabit} />;
+        return <TodaysMeals plan={plan} daily={daily} onToggleMeal={handleToggleMeal} onToggleHabit={handleToggleHabit}
+          onAddCustomMeal={handleAddCustomMeal} onRemoveCustomMeal={handleRemoveCustomMeal} onEditMeal={handleEditMeal} />;
       case 'mealplanner':
         return <MealPlanner plan={plan} />;
       case 'recipes':
