@@ -17,7 +17,7 @@ import { Recipes } from '@/components/pages/Recipes';
 import { Challenges } from '@/components/pages/Challenges';
 import { TipsBreathing } from '@/components/pages/TipsBreathing';
 import { ProgressPage } from '@/components/pages/ProgressPage';
-import { UserProfile, AIPlan } from '@/types/fitness';
+import { UserProfile, AIPlan, Meal } from '@/types/fitness';
 import { Toaster } from '@/components/ui/sonner';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
