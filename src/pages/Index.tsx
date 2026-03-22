@@ -84,11 +84,31 @@ const Index = () => {
 
   const handleAddFood = (name: string, calories: number) => {
     data.updateDaily(d => ({ ...d, foodLog: [...d.foodLog, { name, calories }] }));
-    toast.success(`Added ${name}`);
   };
 
   const handleRemoveFood = (index: number) => {
     data.updateDaily(d => ({ ...d, foodLog: d.foodLog.filter((_, i) => i !== index) }));
+  };
+
+  const handleAddCustomMeal = (meal: Meal) => {
+    data.updateDaily(d => ({ ...d, customMeals: [...(d.customMeals || []), meal] }));
+    toast.success(`Added ${meal.name}`);
+  };
+
+  const handleRemoveCustomMeal = (id: string) => {
+    data.updateDaily(d => ({
+      ...d,
+      customMeals: (d.customMeals || []).filter(m => m.id !== id),
+      meals: { ...d.meals, [id]: undefined } as any,
+    }));
+  };
+
+  const handleEditMeal = (id: string, updates: Partial<Meal>) => {
+    data.updateDaily(d => ({
+      ...d,
+      mealEdits: { ...(d.mealEdits || {}), [id]: updates },
+    }));
+    toast.success('Meal updated');
   };
 
   const handleRegenerate = async () => {
