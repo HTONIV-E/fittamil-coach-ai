@@ -1,46 +1,136 @@
-import { AIPlan, DailyData } from '@/types/fitness';
+import { useState } from 'react';
+import { AIPlan, DailyData, Meal } from '@/types/fitness';
 import { ProgressBar } from '@/components/shared/ProgressBar';
-import { Check } from 'lucide-react';
+import { Check, Plus, X, Edit2 } from 'lucide-react';
 
 interface TodaysMealsProps {
   plan: AIPlan;
   daily: DailyData;
   onToggleMeal: (id: string) => void;
   onToggleHabit: (habit: string) => void;
+  onAddCustomMeal?: (meal: Meal) => void;
+  onRemoveCustomMeal?: (id: string) => void;
+  onEditMeal?: (id: string, updates: Partial<Meal>) => void;
 }
 
-export function TodaysMeals({ plan, daily, onToggleMeal, onToggleHabit }: TodaysMealsProps) {
-  const checkedCount = Object.values(daily.meals).filter(Boolean).length;
-  const caloriesConsumed = plan.meals
+export function TodaysMeals({ plan, daily, onToggleMeal, onToggleHabit, onAddCustomMeal, onRemoveCustomMeal, onEditMeal }: TodaysMealsProps) {
+  const [showAdd, setShowAdd] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [newMeal, setNewMeal] = useState({ name: '', time: '', calories: 0, foods: '' });
+  const [editMeal, setEditMealState] = useState({ name: '', time: '', calories: 0, foods: '' });
+
+  const allMeals = [...plan.meals, ...(daily.customMeals || [])];
+  const checkedCount = allMeals.filter(m => daily.meals[m.id]).length;
+  const caloriesConsumed = allMeals
     .filter(m => daily.meals[m.id])
     .reduce((s, m) => s + m.calories, 0);
+
+  const handleAdd = () => {
+    if (!newMeal.name || !newMeal.calories) return;
+    const id = `custom-${Date.now()}`;
+    onAddCustomMeal?.({ id, name: newMeal.name, time: newMeal.time || '12:00 PM', calories: newMeal.calories, foods: newMeal.foods, done: false });
+    setNewMeal({ name: '', time: '', calories: 0, foods: '' });
+    setShowAdd(false);
+  };
+
+  const startEdit = (meal: Meal) => {
+    setEditingId(meal.id);
+    setEditMealState({ name: meal.name, time: meal.time, calories: meal.calories, foods: meal.foods });
+  };
+
+  const saveEdit = (id: string) => {
+    onEditMeal?.(id, editMeal);
+    setEditingId(null);
+  };
 
   return (
     <div className="space-y-5 animate-fade-up">
       <ProgressBar value={caloriesConsumed} max={plan.dailyCalories}
-        label="Calories" showValue variant="success" />
+        label={`${caloriesConsumed} / ${plan.dailyCalories} kcal`} showValue variant="success" />
 
-      <div className="text-sm text-muted-foreground">
-        {checkedCount}/{plan.meals.length} meals completed
+      <div className="flex items-center justify-between">
+        <div className="text-sm text-muted-foreground">
+          {checkedCount}/{allMeals.length} meals completed
+        </div>
+        <button onClick={() => setShowAdd(!showAdd)}
+          className="flex items-center gap-1 text-xs font-medium text-primary">
+          <Plus className="h-4 w-4" /> Add Meal
+        </button>
       </div>
 
+      {/* Add meal form */}
+      {showAdd && (
+        <div className="ft-card space-y-3">
+          <h4 className="text-sm font-semibold">Add Custom Meal</h4>
+          <input placeholder="Meal name (e.g., Evening Snack)" value={newMeal.name}
+            onChange={e => setNewMeal(p => ({ ...p, name: e.target.value }))}
+            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none" />
+          <input placeholder="Foods (e.g., Banana + Peanuts)" value={newMeal.foods}
+            onChange={e => setNewMeal(p => ({ ...p, foods: e.target.value }))}
+            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none" />
+          <div className="flex gap-2">
+            <input type="number" placeholder="Calories" value={newMeal.calories || ''}
+              onChange={e => setNewMeal(p => ({ ...p, calories: Number(e.target.value) }))}
+              className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none" />
+            <input type="text" placeholder="Time (e.g., 4:00 PM)" value={newMeal.time}
+              onChange={e => setNewMeal(p => ({ ...p, time: e.target.value }))}
+              className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none" />
+          </div>
+          <div className="flex gap-2">
+            <button onClick={handleAdd} className="flex-1 gradient-primary text-background rounded-lg py-2 text-sm font-medium">Add</button>
+            <button onClick={() => setShowAdd(false)} className="px-4 border border-border rounded-lg py-2 text-sm">Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {/* Meal list */}
       <div className="space-y-3">
-        {plan.meals.map(meal => (
-          <button key={meal.id}
-            onClick={() => onToggleMeal(meal.id)}
-            className={`w-full ft-card flex items-start gap-3 text-left transition-all active:scale-[0.98] ${daily.meals[meal.id] ? 'border-accent/50 bg-accent/5' : ''}`}>
-            <div className={`mt-0.5 h-6 w-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${daily.meals[meal.id] ? 'border-accent bg-accent' : 'border-border'}`}>
-              {daily.meals[meal.id] && <Check className="h-3.5 w-3.5 text-background" />}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex justify-between items-baseline">
-                <span className="font-medium">{meal.name}</span>
-                <span className="font-mono text-xs text-muted-foreground">{meal.time}</span>
+        {allMeals.map(meal => (
+          <div key={meal.id} className={`ft-card transition-all ${daily.meals[meal.id] ? 'border-accent/50 bg-accent/5' : ''}`}>
+            {editingId === meal.id ? (
+              <div className="space-y-2">
+                <input value={editMeal.name} onChange={e => setEditMealState(p => ({ ...p, name: e.target.value }))}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus:border-primary focus:outline-none" />
+                <input value={editMeal.foods} onChange={e => setEditMealState(p => ({ ...p, foods: e.target.value }))}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus:border-primary focus:outline-none" />
+                <div className="flex gap-2">
+                  <input type="number" value={editMeal.calories} onChange={e => setEditMealState(p => ({ ...p, calories: Number(e.target.value) }))}
+                    className="flex-1 rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus:border-primary focus:outline-none" />
+                  <input value={editMeal.time} onChange={e => setEditMealState(p => ({ ...p, time: e.target.value }))}
+                    className="flex-1 rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus:border-primary focus:outline-none" />
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={() => saveEdit(meal.id)} className="text-xs text-primary font-medium">Save</button>
+                  <button onClick={() => setEditingId(null)} className="text-xs text-muted-foreground">Cancel</button>
+                </div>
               </div>
-              <div className="text-sm text-muted-foreground mt-0.5">{meal.foods}</div>
-              <div className="font-mono text-xs text-ft-cyan mt-1">{meal.calories} kcal</div>
-            </div>
-          </button>
+            ) : (
+              <div className="flex items-start gap-3">
+                <button onClick={() => onToggleMeal(meal.id)}
+                  className={`mt-0.5 h-6 w-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${daily.meals[meal.id] ? 'border-accent bg-accent' : 'border-border'}`}>
+                  {daily.meals[meal.id] && <Check className="h-3.5 w-3.5 text-background" />}
+                </button>
+                <div className="flex-1 min-w-0">
+                  <div className="flex justify-between items-baseline">
+                    <span className="font-medium">{meal.name}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-xs text-muted-foreground">{meal.time}</span>
+                      <button onClick={() => startEdit(meal)} className="text-muted-foreground hover:text-primary">
+                        <Edit2 className="h-3.5 w-3.5" />
+                      </button>
+                      {meal.id.startsWith('custom-') && (
+                        <button onClick={() => onRemoveCustomMeal?.(meal.id)} className="text-destructive">
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-sm text-muted-foreground mt-0.5">{meal.foods}</div>
+                  <div className="font-mono text-xs text-ft-cyan mt-1">{meal.calories} kcal</div>
+                </div>
+              </div>
+            )}
+          </div>
         ))}
       </div>
 
