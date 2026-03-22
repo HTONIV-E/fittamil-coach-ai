@@ -144,7 +144,8 @@ const Index = () => {
       case 'myplan':
         return <MyPlan plan={plan} onRegenerate={handleRegenerate} />;
       case 'meals':
-        return <TodaysMeals plan={plan} daily={daily} onToggleMeal={handleToggleMeal} onToggleHabit={handleToggleHabit} />;
+        return <TodaysMeals plan={plan} daily={daily} onToggleMeal={handleToggleMeal} onToggleHabit={handleToggleHabit}
+          onAddCustomMeal={handleAddCustomMeal} onRemoveCustomMeal={handleRemoveCustomMeal} onEditMeal={handleEditMeal} />;
       case 'mealplanner':
         return <MealPlanner plan={plan} />;
       case 'recipes':
