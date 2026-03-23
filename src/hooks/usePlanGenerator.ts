@@ -21,7 +21,6 @@ function calcBMI(weight: number, height: number): number {
 
 function generateMeals(p: UserProfile, calories: number): Meal[] {
   const isVeg = p.dietType === 'veg' || p.dietType === 'vegan';
-  const noEgg = p.dietType === 'vegan';
   const perMeal = Math.round(calories / 7);
 
   const mealTemplates = [
@@ -44,7 +43,6 @@ function generateWorkouts(p: UserProfile): Record<string, WorkoutExercise[]> {
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
   const schedule: Record<string, WorkoutExercise[]> = {};
   const hasGym = p.gymAccess === 'yes';
-  const isLoss = p.fitnessGoal === 'loss';
 
   const exercises = {
     cardio: [
@@ -97,10 +95,10 @@ export function generatePlan(profile: UserProfile): AIPlan {
   const meals = generateMeals(profile, calorieTarget);
   const workoutSchedule = generateWorkouts(profile);
 
-  // Generate weekly meal plan (same structure, slight variations)
+  // Generate weekly meal plan — IDs are meal-0..meal-6 (same as base meals)
   const weeklyMealPlan: Record<string, Meal[]> = {};
   ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].forEach(day => {
-    weeklyMealPlan[day] = meals.map(m => ({ ...m, id: `${day}-${m.id}` }));
+    weeklyMealPlan[day] = meals.map(m => ({ ...m }));
   });
 
   return {
@@ -153,7 +151,7 @@ export function generatePlan(profile: UserProfile): AIPlan {
         'Sleep by 10 PM for optimal fat burning',
         'Buttermilk with lunch aids digestion',
       ],
-      warnings: profile.conditions.filter(c => c !== 'none').map(c =>
+      warnings: profile.conditions.filter(c => c !== 'none' && c !== 'None').map(c =>
         `Be cautious with ${c} — modify exercises accordingly`
       ),
       quote: 'முயற்சி திருவினை ஆக்கும் — Effort turns fortune into reality',

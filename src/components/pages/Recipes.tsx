@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Search, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -12,21 +12,22 @@ interface Recipe {
   method: string[];
 }
 
+interface RecipesProps {
+  initialSearch?: string;
+}
+
 const FILTERS = ['All', 'Breakfast', 'Lunch', 'Dinner', 'Drinks', 'Snack'] as const;
 
-export function Recipes() {
+export function Recipes({ initialSearch }: RecipesProps) {
   const [filter, setFilter] = useState<string>('All');
   const [expanded, setExpanded] = useState<string | null>(null);
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(initialSearch || '');
   const [searching, setSearching] = useState(false);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
 
   const searchRecipes = useCallback(async (query?: string) => {
     const q = query || search.trim();
-    if (!q && filter === 'All') {
-      // Default search
-    }
     setSearching(true);
     setHasSearched(true);
     try {
@@ -43,6 +44,13 @@ export function Recipes() {
       setSearching(false);
     }
   }, [search, filter]);
+
+  // Auto-search if initialSearch provided
+  useEffect(() => {
+    if (initialSearch) {
+      searchRecipes(initialSearch);
+    }
+  }, [initialSearch]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') searchRecipes();

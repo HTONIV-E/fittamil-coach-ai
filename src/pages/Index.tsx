@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { useFitData } from '@/hooks/useFitData';
 import { generatePlan } from '@/hooks/usePlanGenerator';
 import { Onboarding } from '@/components/Onboarding';
+import { ProfilePicker } from '@/components/ProfilePicker';
 import { MobileLayout } from '@/components/layout/MobileLayout';
 import { Dashboard } from '@/components/pages/Dashboard';
 import { TodaysMeals } from '@/components/pages/TodaysMeals';
@@ -33,12 +34,42 @@ const PAGE_TITLES: Record<string, string> = {
 const Index = () => {
   const data = useFitData();
   const [page, setPage] = useState('dashboard');
+  const [recipeContext, setRecipeContext] = useState<string | undefined>();
+
+  const handleNavigate = useCallback((p: string, context?: string) => {
+    if (p === 'recipes' && context) {
+      setRecipeContext(context);
+    }
+    setPage(p);
+  }, []);
 
   const handleOnboardingComplete = useCallback((profile: UserProfile, plan: AIPlan) => {
     data.setProfile(profile);
     data.setPlan(plan);
     toast.success('Your personalised plan is ready! 🎉');
   }, [data]);
+
+  // Show profile picker if profiles exist but none is active
+  if (data.profiles.length > 0 && data.activeProfileId === null) {
+    return (
+      <ProfilePicker
+        profiles={data.profiles}
+        onSelectProfile={data.switchProfile}
+        onAddProfile={data.addProfile}
+      />
+    );
+  }
+
+  // Show profile picker for new users (no profiles yet) — they can create first profile
+  if (data.profiles.length === 0 && data.activeProfileId === null) {
+    return (
+      <ProfilePicker
+        profiles={[]}
+        onSelectProfile={data.switchProfile}
+        onAddProfile={data.addProfile}
+      />
+    );
+  }
 
   if (!data.onboarded || !data.profile || !data.plan) {
     return <Onboarding onComplete={handleOnboardingComplete} />;
@@ -136,20 +167,23 @@ const Index = () => {
   const dailySummary = `Today: ${Object.values(daily.meals).filter(Boolean).length} meals done, ${daily.water} glasses water, ${Object.values(daily.workout).filter(Boolean).length} exercises done, mood: ${daily.mood || 'not set'}, energy: ${daily.energy}/10`;
   const planSummary = `Target: ${plan.dailyCalories}kcal, ${plan.dailyWater}ml water, ${plan.meals.length} meals, BMI ${plan.currentBMI}→${plan.targetBMI}`;
 
+  const activeProfileMeta = data.profiles.find(p => p.id === data.activeProfileId);
+
   const renderPage = () => {
     switch (page) {
       case 'dashboard':
         return <Dashboard plan={plan} daily={daily} streak={data.streak} profile={profile}
-          onNavigate={setPage} onLogWeight={() => setPage('profile')} />;
+          onNavigate={handleNavigate} onLogWeight={() => handleNavigate('profile')} />;
       case 'myplan':
         return <MyPlan plan={plan} onRegenerate={handleRegenerate} />;
       case 'meals':
         return <TodaysMeals plan={plan} daily={daily} onToggleMeal={handleToggleMeal} onToggleHabit={handleToggleHabit}
-          onAddCustomMeal={handleAddCustomMeal} onRemoveCustomMeal={handleRemoveCustomMeal} onEditMeal={handleEditMeal} />;
+          onAddCustomMeal={handleAddCustomMeal} onRemoveCustomMeal={handleRemoveCustomMeal} onEditMeal={handleEditMeal}
+          onNavigate={handleNavigate} />;
       case 'mealplanner':
-        return <MealPlanner plan={plan} />;
+        return <MealPlanner plan={plan} daily={daily} onToggleMeal={handleToggleMeal} onNavigate={handleNavigate} />;
       case 'recipes':
-        return <Recipes />;
+        return <Recipes initialSearch={recipeContext} />;
       case 'workout':
         return <TodaysWorkout plan={plan} daily={daily} onToggleExercise={handleToggleExercise} onToggleCore={handleToggleCore} />;
       case 'challenges':
@@ -180,7 +214,9 @@ const Index = () => {
 
   return (
     <MobileLayout title={PAGE_TITLES[page] || 'FitTamil AI'} streak={data.streak}
-      profile={profile} onNavigate={setPage} currentPage={page}>
+      profile={profile} onNavigate={handleNavigate} currentPage={page}
+      profileEmoji={activeProfileMeta?.emoji}
+      onProfileClick={data.goToProfilePicker}>
       {renderPage()}
     </MobileLayout>
   );

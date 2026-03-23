@@ -1,8 +1,9 @@
 import { useLocalStorage } from './useLocalStorage';
-import { UserProfile, AIPlan, DailyData, Measurement } from '@/types/fitness';
-import { useCallback, useEffect } from 'react';
+import { UserProfile, AIPlan, DailyData, Measurement, ProfileMeta } from '@/types/fitness';
+import { useCallback, useEffect, useState } from 'react';
 
-const STORAGE_KEY = 'ftai_v3';
+const STORAGE_KEY_PREFIX = 'ftai_v3';
+const META_KEY = 'ftai_v3_meta';
 
 const defaultDaily: DailyData = {
   meals: {}, workout: {}, coreWorkout: {}, water: 0,
@@ -30,6 +31,11 @@ interface StoredState {
   workoutHistory: Record<string, string[]>;
 }
 
+interface MetaState {
+  profiles: ProfileMeta[];
+  activeProfileId: number | null;
+}
+
 const defaultState: StoredState = {
   profile: null, plan: null, daily: defaultDaily,
   streak: 0, bestStreak: 0, lastDate: '', workoutStreak: 0,
@@ -39,16 +45,53 @@ const defaultState: StoredState = {
   weekMeals: {}, workoutHistory: {},
 };
 
+const defaultMeta: MetaState = {
+  profiles: [],
+  activeProfileId: null,
+};
+
+function getStorageKey(profileId: number): string {
+  return `${STORAGE_KEY_PREFIX}_profile_${profileId}`;
+}
+
 export function useFitData() {
-  const [state, setState] = useLocalStorage<StoredState>(STORAGE_KEY, defaultState);
+  const [meta, setMeta] = useLocalStorage<MetaState>(META_KEY, defaultMeta);
+  
+  // Migrate: if old ftai_v3 key exists and no profiles, migrate it
+  useEffect(() => {
+    if (meta.profiles.length === 0) {
+      try {
+        const old = window.localStorage.getItem('ftai_v3');
+        if (old) {
+          const oldState = JSON.parse(old) as StoredState;
+          if (oldState.onboarded && oldState.profile) {
+            const profileMeta: ProfileMeta = {
+              id: 0,
+              name: oldState.profile.name || 'Profile 1',
+              emoji: oldState.profile.gender === 'female' ? '👩' : oldState.profile.gender === 'male' ? '👨' : '🧑',
+              createdAt: new Date().toISOString(),
+            };
+            window.localStorage.setItem(getStorageKey(0), old);
+            setMeta({ profiles: [profileMeta], activeProfileId: 0 });
+            return;
+          }
+        }
+      } catch { /* ignore */ }
+    }
+  }, []);
+
+  const activeId = meta.activeProfileId;
+  const storageKey = activeId !== null ? getStorageKey(activeId) : `${STORAGE_KEY_PREFIX}_temp`;
+  
+  const [state, setState] = useLocalStorage<StoredState>(storageKey, defaultState);
 
   const today = new Date().toISOString().split('T')[0];
 
-  // Daily reset
+  // Daily reset — streak threshold changed to >= 6
   useEffect(() => {
     if (state.lastDate && state.lastDate !== today) {
       const mealsChecked = Object.values(state.daily.meals).filter(Boolean).length;
-      const streakContinues = mealsChecked >= 4;
+      const streakContinues = mealsChecked >= 6;
       const newStreak = streakContinues ? state.streak + 1 : 0;
       const workoutDone = Object.values(state.daily.workout).filter(Boolean).length > 0;
 
@@ -100,6 +143,22 @@ export function useFitData() {
 
   const resetAll = useCallback(() => setState(defaultState), [setState]);
 
+  // Multi-profile methods
+  const addProfile = useCallback((name: string, emoji: string) => {
+    const newId = meta.profiles.length > 0 ? Math.max(...meta.profiles.map(p => p.id)) + 1 : 0;
+    const newProfile: ProfileMeta = { id: newId, name, emoji, createdAt: new Date().toISOString() };
+    window.localStorage.setItem(getStorageKey(newId), JSON.stringify(defaultState));
+    setMeta(prev => ({ profiles: [...prev.profiles, newProfile], activeProfileId: newId }));
+  }, [meta.profiles, setMeta]);
+
+  const switchProfile = useCallback((id: number) => {
+    setMeta(prev => ({ ...prev, activeProfileId: id }));
+  }, [setMeta]);
+
+  const goToProfilePicker = useCallback(() => {
+    setMeta(prev => ({ ...prev, activeProfileId: null }));
+  }, [setMeta]);
+
   // Apply theme
   useEffect(() => {
     const root = document.documentElement;
@@ -116,5 +175,9 @@ export function useFitData() {
     ...state, today, setProfile, setPlan, updateDaily,
     addMeasurement, addBMI, setTheme, setLanguage,
     updateProfile, resetAll, setState,
+    // Multi-profile
+    profiles: meta.profiles,
+    activeProfileId: meta.activeProfileId,
+    addProfile, switchProfile, goToProfilePicker,
   };
 }

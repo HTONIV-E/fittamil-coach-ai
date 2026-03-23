@@ -1,3 +1,10 @@
+export interface ProfileMeta {
+  id: number;
+  name: string;
+  emoji: string;
+  createdAt: string;
+}
+
 export interface UserProfile {
   name: string;
   age: number;
@@ -27,6 +34,19 @@ export interface UserProfile {
   commitment: number;
   familySupport: string;
   language: 'en' | 'ta';
+  // New fields
+  jobType: string;
+  commuteType: string;
+  bodyType: string;
+  injuries: string;
+  onMedication: boolean;
+  targetTimeline: string;
+  triedBefore: string;
+  cuisinePreference: string;
+  mealsPerDay: number;
+  skipBreakfast: boolean;
+  equipment: string[];
+  menstrualRegularity: string;
 }
 
 export interface Meal {

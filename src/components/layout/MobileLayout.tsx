@@ -10,9 +10,11 @@ interface MobileLayoutProps {
   profile?: { name: string; gender: string } | null;
   onNavigate: (page: string) => void;
   currentPage: string;
+  profileEmoji?: string;
+  onProfileClick?: () => void;
 }
 
-export function MobileLayout({ title, children, streak = 0, profile, onNavigate, currentPage }: MobileLayoutProps) {
+export function MobileLayout({ title, children, streak = 0, profile, onNavigate, currentPage, profileEmoji, onProfileClick }: MobileLayoutProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const today = new Date();
   const dateStr = today.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -21,9 +23,16 @@ export function MobileLayout({ title, children, streak = 0, profile, onNavigate,
     <div className="mx-auto flex min-h-screen max-w-mobile flex-col bg-background">
       {/* Header */}
       <header className="glass sticky top-0 z-40 flex h-14 items-center justify-between px-4">
-        <button onClick={() => setDrawerOpen(true)} className="rounded-lg p-2 hover:bg-muted active:scale-95 transition-transform">
-          <Menu className="h-5 w-5" />
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setDrawerOpen(true)} className="rounded-lg p-2 hover:bg-muted active:scale-95 transition-transform">
+            <Menu className="h-5 w-5" />
+          </button>
+          {profileEmoji && onProfileClick && (
+            <button onClick={onProfileClick} className="text-xl active:scale-90 transition-transform" title="Switch profile">
+              {profileEmoji}
+            </button>
+          )}
+        </div>
         <h1 className="font-heading text-xl tracking-wide">{title}</h1>
         <div className="flex items-center gap-1.5 text-sm">
           <span className="text-muted-foreground">{dateStr}</span>
