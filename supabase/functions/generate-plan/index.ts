@@ -51,15 +51,25 @@ Match workout intensity to activity level and duration preference.`;
 Name: ${profile.name}
 Age: ${profile.age}, Gender: ${profile.gender}
 Weight: ${profile.weight}kg, Target: ${profile.targetWeight}kg, Height: ${profile.height}cm
+Body Type: ${profile.bodyType || 'Not sure'}
 Conditions: ${profile.conditions?.join(', ') || 'None'}
+Injuries: ${profile.injuries || 'None'}
+On Medication: ${profile.onMedication ? 'Yes' : 'No'}
+Menstrual: ${profile.menstrualRegularity || 'NA'}
 Sleep: ${profile.sleepHours}, Stress: ${profile.stressLevel}
 Activity: ${profile.activityLevel}, Goal: ${profile.fitnessGoal}
-Gym: ${profile.gymAccess}, Workout: ${profile.workoutDays}x/week, ${profile.workoutDuration}min, Time: ${profile.workoutTime}
-Diet: ${profile.dietType}, Favourite foods: ${profile.favFoods || 'Not specified'}
+Gym: ${profile.gymAccess}, Equipment: ${profile.equipment?.join(', ') || 'None'}
+Workout: ${profile.workoutDays}x/week, ${profile.workoutDuration}min, Time: ${profile.workoutTime}
+Tried Before: ${profile.triedBefore || 'Never'}
+Diet: ${profile.dietType}, Cuisine: ${profile.cuisinePreference || 'South Indian'}
+Favourite foods: ${profile.favFoods || 'Not specified'}
+Meals per day: ${profile.mealsPerDay || 3}, Skips breakfast: ${profile.skipBreakfast ? 'Yes' : 'No'}
 Water: ${profile.waterIntake} glasses, Rice at night: ${profile.riceAtNight}, Coffee: ${profile.coffeeCups}/day
 Wake: ${profile.wakeTime}, Sleep: ${profile.sleepTime}
+Job: ${profile.jobType || 'Not specified'}, Commute: ${profile.commuteType || 'Not specified'}
 Occupation: ${profile.occupation}, Region: ${profile.region}
 Motivation: ${profile.motivation}, Commitment: ${profile.commitment}/10
+Target Timeline: ${profile.targetTimeline || '3 months'}
 Family support: ${profile.familySupport}
 
 Return ONLY the JSON object, no markdown, no explanation.`;
