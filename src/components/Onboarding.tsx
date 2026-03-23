@@ -19,6 +19,12 @@ const defaultProfile: UserProfile = {
   waterIntake: 4, riceAtNight: 'sometimes', coffeeCups: '2',
   wakeTime: '06:00', sleepTime: '22:00', occupation: 'office', region: 'chennai',
   motivation: 'health', commitment: 7, familySupport: 'yes', language: 'en',
+  // New fields
+  jobType: 'Desk job', commuteType: 'Car', bodyType: 'Not sure',
+  injuries: '', onMedication: false, targetTimeline: '3 months',
+  triedBefore: 'Never', cuisinePreference: 'South Indian',
+  mealsPerDay: 3, skipBreakfast: false, equipment: [],
+  menstrualRegularity: 'NA',
 };
 
 export function Onboarding({ onComplete }: OnboardingProps) {
@@ -40,8 +46,19 @@ export function Onboarding({ onComplete }: OnboardingProps) {
           : [...p.conditions.filter(x => x !== 'None'), c],
     }));
 
+  const toggleEquipment = (e: string) =>
+    setProfile(p => ({
+      ...p,
+      equipment: e === 'None'
+        ? []
+        : p.equipment.includes(e)
+          ? p.equipment.filter(x => x !== e)
+          : [...p.equipment, e],
+    }));
+
   const next = () => setStep(s => s + 1);
   const prev = () => setStep(s => Math.max(0, s - 1));
+  const TOTAL_STEPS = 9;
 
   const handleGenerate = async () => {
     setGenerating(true);
@@ -52,13 +69,11 @@ export function Onboarding({ onComplete }: OnboardingProps) {
       'Setting your 12-week milestones...',
       'Finalising your personalised coaching...',
     ];
-    
-    // Start AI generation
+
     const aiPromise = supabase.functions.invoke('generate-plan', {
       body: { profile },
     });
 
-    // Animate steps while waiting
     for (let i = 0; i < steps.length - 1; i++) {
       setGenStep(i);
       await new Promise(r => setTimeout(r, 1200));
@@ -67,7 +82,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
     try {
       const { data, error } = await aiPromise;
       setGenStep(4);
-      
+
       if (error || !data?.plan) {
         console.warn('AI generation failed, using local fallback:', error);
         const fallbackPlan = generatePlan(profile);
@@ -111,6 +126,19 @@ export function Onboarding({ onComplete }: OnboardingProps) {
     );
   }
 
+  const stepTitles = [
+    'Welcome',
+    'Basic Info',
+    'Health Conditions',
+    'Lifestyle',
+    'Fitness Goal',
+    'Diet Preferences',
+    'Fitness Level',
+    'Medical Details',
+    'Goals & Timeline',
+    'Review & Generate',
+  ];
+
   const stepContent = [
     // Step 0: Welcome
     <div key="0" className="flex flex-col items-center justify-center min-h-[70vh] text-center space-y-6">
@@ -132,7 +160,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
 
     // Step 1: Basic Info
     <div key="1" className="space-y-6">
-      <StepHeader num={1} title="Tell us about yourself" />
+      <StepHeader title="Basic Info" subtitle="Tell us about yourself" />
       <InputField label="Name" value={profile.name} onChange={v => set('name', v)} placeholder="Your name" />
       <InputField label="Age" type="number" value={String(profile.age)} onChange={v => set('age', +v)} />
       <div>
@@ -145,32 +173,14 @@ export function Onboarding({ onComplete }: OnboardingProps) {
           ))}
         </div>
       </div>
-    </div>,
-
-    // Step 2: Body Stats
-    <div key="2" className="space-y-6">
-      <StepHeader num={2} title="Body measurements" />
       <InputField label="Current Weight (kg)" type="number" value={String(profile.weight)} onChange={v => set('weight', +v)} />
       <InputField label="Target Weight (kg)" type="number" value={String(profile.targetWeight)} onChange={v => set('targetWeight', +v)} />
       <InputField label="Height (cm)" type="number" value={String(profile.height)} onChange={v => set('height', +v)} />
-      {profile.weight > 0 && profile.targetWeight > 0 && (
-        <div className="ft-card text-center">
-          <div className="text-sm text-muted-foreground mb-1">Weight gap to target</div>
-          <div className="font-heading text-3xl">
-            <span className={profile.weight > profile.targetWeight ? 'text-ft-red' : 'text-ft-emerald'}>
-              {Math.abs(profile.weight - profile.targetWeight)}kg
-            </span>
-            <span className="text-lg text-muted-foreground ml-2">
-              to {profile.weight > profile.targetWeight ? 'lose' : 'gain'}
-            </span>
-          </div>
-        </div>
-      )}
     </div>,
 
-    // Step 3: Health
-    <div key="3" className="space-y-6">
-      <StepHeader num={3} title="Health profile" />
+    // Step 2: Health Conditions
+    <div key="2" className="space-y-6">
+      <StepHeader title="Health Conditions" subtitle="Any medical conditions?" />
       <div>
         <label className="text-sm text-muted-foreground mb-2 block">Medical Conditions</label>
         <div className="flex flex-wrap gap-2">
@@ -198,9 +208,40 @@ export function Onboarding({ onComplete }: OnboardingProps) {
       </div>
     </div>,
 
-    // Step 4: Fitness
+    // Step 3: Lifestyle
+    <div key="3" className="space-y-6">
+      <StepHeader title="Lifestyle" subtitle="Your daily routine" />
+      <InputField label="Wake Time" type="time" value={profile.wakeTime} onChange={v => set('wakeTime', v)} />
+      <InputField label="Sleep Time" type="time" value={profile.sleepTime} onChange={v => set('sleepTime', v)} />
+      <div>
+        <label className="text-sm text-muted-foreground mb-2 block">Job Type</label>
+        <div className="grid grid-cols-2 gap-3">
+          {['Desk job', 'Field work', 'Home', 'Student'].map(j => (
+            <SelectCard key={j} selected={profile.jobType === j} onClick={() => set('jobType', j)} label={j} />
+          ))}
+        </div>
+      </div>
+      <div>
+        <label className="text-sm text-muted-foreground mb-2 block">Commute Type</label>
+        <div className="grid grid-cols-4 gap-2">
+          {['Walk', 'Bike', 'Car', 'Bus'].map(c => (
+            <SelectCard key={c} selected={profile.commuteType === c} onClick={() => set('commuteType', c)} label={c} />
+          ))}
+        </div>
+      </div>
+      <div>
+        <label className="text-sm text-muted-foreground mb-2 block">Region</label>
+        <div className="flex flex-wrap gap-2">
+          {['Chennai', 'Coimbatore', 'Madurai', 'Trichy', 'Other'].map(r => (
+            <Chip key={r} label={r} selected={profile.region === r.toLowerCase()} onClick={() => set('region', r.toLowerCase())} />
+          ))}
+        </div>
+      </div>
+    </div>,
+
+    // Step 4: Fitness Goal
     <div key="4" className="space-y-6">
-      <StepHeader num={4} title="Fitness preferences" />
+      <StepHeader title="Fitness Goal" subtitle="What do you want to achieve?" />
       <div>
         <label className="text-sm text-muted-foreground mb-2 block">Activity Level</label>
         <div className="grid grid-cols-2 gap-3">
@@ -230,10 +271,99 @@ export function Onboarding({ onComplete }: OnboardingProps) {
         </div>
       </div>
       <div>
+        <label className="text-sm text-muted-foreground mb-2 block">Body Type</label>
+        <div className="grid grid-cols-2 gap-3">
+          {['Ectomorph', 'Mesomorph', 'Endomorph', 'Not sure'].map(b => (
+            <SelectCard key={b} selected={profile.bodyType === b} onClick={() => set('bodyType', b)} label={b} />
+          ))}
+        </div>
+      </div>
+    </div>,
+
+    // Step 5: Diet Preferences
+    <div key="5" className="space-y-6">
+      <StepHeader title="Diet Preferences" subtitle="Your food choices" />
+      <div>
+        <label className="text-sm text-muted-foreground mb-2 block">Diet Type</label>
+        <div className="grid grid-cols-2 gap-3">
+          {[
+            { id: 'nonveg', label: 'Non-Veg', icon: '🍗' },
+            { id: 'veg', label: 'Vegetarian', icon: '🥬' },
+            { id: 'egg', label: 'Eggetarian', icon: '🥚' },
+            { id: 'vegan', label: 'Vegan', icon: '🌱' },
+          ].map(d => (
+            <SelectCard key={d.id} selected={profile.dietType === d.id} onClick={() => set('dietType', d.id)}
+              icon={d.icon} label={d.label} />
+          ))}
+        </div>
+      </div>
+      <div>
+        <label className="text-sm text-muted-foreground mb-2 block">Cuisine Preference</label>
+        <div className="grid grid-cols-3 gap-2">
+          {['South Indian', 'North Indian', 'Mixed'].map(c => (
+            <SelectCard key={c} selected={profile.cuisinePreference === c} onClick={() => set('cuisinePreference', c)} label={c} />
+          ))}
+        </div>
+      </div>
+      <InputField label="Favourite Tamil Foods" value={profile.favFoods} onChange={v => set('favFoods', v)} placeholder="e.g. Dosa, Biryani, Sambar" />
+      <div>
+        <label className="text-sm text-muted-foreground mb-2 block">Meals Per Day</label>
+        <div className="grid grid-cols-3 gap-3">
+          {[3, 4, 6].map(n => (
+            <SelectCard key={n} selected={profile.mealsPerDay === n} onClick={() => set('mealsPerDay', n)} label={`${n} meals`} />
+          ))}
+        </div>
+      </div>
+      <div className="flex items-center justify-between">
+        <span className="text-sm text-muted-foreground">Skip breakfast often?</span>
+        <button onClick={() => set('skipBreakfast', !profile.skipBreakfast)}
+          className={`rounded-full px-4 py-1.5 text-sm border-2 transition-all ${profile.skipBreakfast ? 'border-primary bg-primary/10 text-ft-cyan' : 'border-border text-muted-foreground'}`}>
+          {profile.skipBreakfast ? 'Yes' : 'No'}
+        </button>
+      </div>
+      <div>
+        <label className="text-sm text-muted-foreground mb-2 block">Rice at Night?</label>
+        <div className="grid grid-cols-3 gap-3">
+          {['yes', 'no', 'sometimes'].map(r => (
+            <SelectCard key={r} selected={profile.riceAtNight === r} onClick={() => set('riceAtNight', r)}
+              label={r.charAt(0).toUpperCase() + r.slice(1)} />
+          ))}
+        </div>
+      </div>
+      <div>
+        <label className="text-sm text-muted-foreground mb-2 block">Filter Coffee/Tea per day</label>
+        <div className="grid grid-cols-4 gap-2">
+          {['0', '1', '2', '3+'].map(c => (
+            <SelectCard key={c} selected={profile.coffeeCups === c} onClick={() => set('coffeeCups', c)} label={c} />
+          ))}
+        </div>
+      </div>
+      <div>
+        <label className="text-sm text-muted-foreground mb-3 block">
+          Water Intake: <span className="text-ft-cyan font-mono">{profile.waterIntake} glasses</span>
+        </label>
+        <input type="range" min={1} max={15} value={profile.waterIntake}
+          onChange={e => set('waterIntake', +e.target.value)}
+          className="w-full accent-[hsl(var(--ft-cyan))]" />
+      </div>
+    </div>,
+
+    // Step 6: Fitness Level
+    <div key="6" className="space-y-6">
+      <StepHeader title="Fitness Level" subtitle="Your workout preferences" />
+      <div>
         <label className="text-sm text-muted-foreground mb-2 block">Gym Access</label>
         <div className="grid grid-cols-3 gap-3">
           {[{ id: 'yes', label: 'Yes' }, { id: 'no', label: 'No' }, { id: 'home', label: 'Home Only' }].map(g => (
             <SelectCard key={g.id} selected={profile.gymAccess === g.id} onClick={() => set('gymAccess', g.id)} label={g.label} />
+          ))}
+        </div>
+      </div>
+      <div>
+        <label className="text-sm text-muted-foreground mb-2 block">Equipment Available</label>
+        <div className="flex flex-wrap gap-2">
+          {['Dumbbells', 'Barbell', 'Treadmill', 'Resistance bands', 'Pull-up bar', 'None'].map(e => (
+            <Chip key={e} label={e} selected={profile.equipment.includes(e)} onClick={() => toggleEquipment(e)} />
           ))}
         </div>
       </div>
@@ -263,58 +393,37 @@ export function Onboarding({ onComplete }: OnboardingProps) {
           ))}
         </div>
       </div>
-    </div>,
-
-    // Step 5: Diet
-    <div key="5" className="space-y-6">
-      <StepHeader num={5} title="Diet & nutrition" />
       <div>
-        <label className="text-sm text-muted-foreground mb-2 block">Diet Type</label>
+        <label className="text-sm text-muted-foreground mb-2 block">Tried Fitness Before?</label>
         <div className="grid grid-cols-2 gap-3">
-          {[
-            { id: 'nonveg', label: 'Non-Veg', icon: '🍗' },
-            { id: 'veg', label: 'Vegetarian', icon: '🥬' },
-            { id: 'egg', label: 'Eggetarian', icon: '🥚' },
-            { id: 'vegan', label: 'Vegan', icon: '🌱' },
-          ].map(d => (
-            <SelectCard key={d.id} selected={profile.dietType === d.id} onClick={() => set('dietType', d.id)}
-              icon={d.icon} label={d.label} />
-          ))}
-        </div>
-      </div>
-      <InputField label="Favourite Tamil Foods" value={profile.favFoods} onChange={v => set('favFoods', v)} placeholder="e.g. Dosa, Biryani, Sambar" />
-      <div>
-        <label className="text-sm text-muted-foreground mb-3 block">
-          Water Intake: <span className="text-ft-cyan font-mono">{profile.waterIntake} glasses</span>
-        </label>
-        <input type="range" min={1} max={15} value={profile.waterIntake}
-          onChange={e => set('waterIntake', +e.target.value)}
-          className="w-full accent-[hsl(var(--ft-cyan))]" />
-      </div>
-      <div>
-        <label className="text-sm text-muted-foreground mb-2 block">Rice at Night?</label>
-        <div className="grid grid-cols-3 gap-3">
-          {['yes', 'no', 'sometimes'].map(r => (
-            <SelectCard key={r} selected={profile.riceAtNight === r} onClick={() => set('riceAtNight', r)}
-              label={r.charAt(0).toUpperCase() + r.slice(1)} />
-          ))}
-        </div>
-      </div>
-      <div>
-        <label className="text-sm text-muted-foreground mb-2 block">Filter Coffee/Tea per day</label>
-        <div className="grid grid-cols-4 gap-2">
-          {['0', '1', '2', '3+'].map(c => (
-            <SelectCard key={c} selected={profile.coffeeCups === c} onClick={() => set('coffeeCups', c)} label={c} />
+          {['Never', '1-2 times', 'Many times', 'Currently active'].map(t => (
+            <SelectCard key={t} selected={profile.triedBefore === t} onClick={() => set('triedBefore', t)} label={t} />
           ))}
         </div>
       </div>
     </div>,
 
-    // Step 6: Lifestyle
-    <div key="6" className="space-y-6">
-      <StepHeader num={6} title="Lifestyle" />
-      <InputField label="Wake Time" type="time" value={profile.wakeTime} onChange={v => set('wakeTime', v)} />
-      <InputField label="Sleep Time" type="time" value={profile.sleepTime} onChange={v => set('sleepTime', v)} />
+    // Step 7: Medical Details
+    <div key="7" className="space-y-6">
+      <StepHeader title="Medical Details" subtitle="Important health info" />
+      <InputField label="Injuries (optional)" value={profile.injuries} onChange={v => set('injuries', v)} placeholder="e.g., ACL tear, shoulder pain" />
+      <div className="flex items-center justify-between">
+        <span className="text-sm text-muted-foreground">Currently on medication?</span>
+        <button onClick={() => set('onMedication', !profile.onMedication)}
+          className={`rounded-full px-4 py-1.5 text-sm border-2 transition-all ${profile.onMedication ? 'border-primary bg-primary/10 text-ft-cyan' : 'border-border text-muted-foreground'}`}>
+          {profile.onMedication ? 'Yes' : 'No'}
+        </button>
+      </div>
+      {profile.gender === 'female' && (
+        <div>
+          <label className="text-sm text-muted-foreground mb-2 block">Menstrual Regularity</label>
+          <div className="grid grid-cols-3 gap-3">
+            {['Regular', 'Irregular', 'NA'].map(m => (
+              <SelectCard key={m} selected={profile.menstrualRegularity === m} onClick={() => set('menstrualRegularity', m)} label={m} />
+            ))}
+          </div>
+        </div>
+      )}
       <div>
         <label className="text-sm text-muted-foreground mb-2 block">Occupation</label>
         <div className="flex flex-wrap gap-2">
@@ -323,19 +432,19 @@ export function Onboarding({ onComplete }: OnboardingProps) {
           ))}
         </div>
       </div>
+    </div>,
+
+    // Step 8: Goals & Timeline
+    <div key="8" className="space-y-6">
+      <StepHeader title="Goals & Timeline" subtitle="Motivation & commitment" />
       <div>
-        <label className="text-sm text-muted-foreground mb-2 block">Region in Tamil Nadu</label>
-        <div className="flex flex-wrap gap-2">
-          {['Chennai', 'Coimbatore', 'Madurai', 'Trichy', 'Other'].map(r => (
-            <Chip key={r} label={r} selected={profile.region === r.toLowerCase()} onClick={() => set('region', r.toLowerCase())} />
+        <label className="text-sm text-muted-foreground mb-2 block">Target Timeline</label>
+        <div className="grid grid-cols-2 gap-3">
+          {['1 month', '3 months', '6 months', '1 year'].map(t => (
+            <SelectCard key={t} selected={profile.targetTimeline === t} onClick={() => set('targetTimeline', t)} label={t} />
           ))}
         </div>
       </div>
-    </div>,
-
-    // Step 7: Motivation
-    <div key="7" className="space-y-6">
-      <StepHeader num={7} title="Motivation & commitment" />
       <div>
         <label className="text-sm text-muted-foreground mb-2 block">Primary Motivation</label>
         <div className="flex flex-wrap gap-2">
@@ -366,18 +475,25 @@ export function Onboarding({ onComplete }: OnboardingProps) {
       </div>
     </div>,
 
-    // Step 8: Review & Generate
-    <div key="8" className="space-y-6">
-      <StepHeader num={8} title="Review & Generate" />
+    // Step 9: Review & Generate
+    <div key="9" className="space-y-6">
+      <StepHeader title="Review & Generate" subtitle="Confirm your details" />
       <div className="ft-card space-y-3">
         <ReviewRow label="Name" value={profile.name || '—'} />
         <ReviewRow label="Age / Gender" value={`${profile.age} / ${profile.gender}`} />
         <ReviewRow label="Weight" value={`${profile.weight}kg → ${profile.targetWeight}kg`} />
         <ReviewRow label="Height" value={`${profile.height}cm`} />
+        <ReviewRow label="Body Type" value={profile.bodyType} />
         <ReviewRow label="Goal" value={profile.fitnessGoal} />
-        <ReviewRow label="Diet" value={profile.dietType} />
+        <ReviewRow label="Timeline" value={profile.targetTimeline} />
+        <ReviewRow label="Diet" value={`${profile.dietType} / ${profile.cuisinePreference}`} />
+        <ReviewRow label="Meals/Day" value={`${profile.mealsPerDay}`} />
         <ReviewRow label="Workout" value={`${profile.workoutDays}x/week, ${profile.workoutDuration}min`} />
+        <ReviewRow label="Equipment" value={profile.equipment.length ? profile.equipment.join(', ') : 'None'} />
         <ReviewRow label="Region" value={profile.region} />
+        <ReviewRow label="Conditions" value={profile.conditions.join(', ') || 'None'} />
+        {profile.injuries && <ReviewRow label="Injuries" value={profile.injuries} />}
+        <ReviewRow label="Medication" value={profile.onMedication ? 'Yes' : 'No'} />
       </div>
       <GradientButton onClick={handleGenerate} fullWidth disabled={!profile.name}>
         🤖 Generate My Plan
@@ -392,10 +508,12 @@ export function Onboarding({ onComplete }: OnboardingProps) {
         <div className="sticky top-0 z-40 glass px-4 py-3">
           <div className="flex items-center justify-between mb-2">
             <button onClick={prev} className="text-sm text-muted-foreground hover:text-foreground">← Back</button>
-            <span className="text-xs text-muted-foreground font-mono">Step {step} of 8</span>
+            <span className="text-xs text-muted-foreground font-mono">
+              {stepTitles[step]} — {step}/{TOTAL_STEPS}
+            </span>
           </div>
           <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-            <div className="h-full gradient-primary rounded-full transition-all duration-500" style={{ width: `${(step / 8) * 100}%` }} />
+            <div className="h-full gradient-primary rounded-full transition-all duration-500" style={{ width: `${(step / TOTAL_STEPS) * 100}%` }} />
           </div>
         </div>
       )}
@@ -405,7 +523,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
       </div>
 
       {/* Next button for non-first/last steps */}
-      {step > 0 && step < 8 && (
+      {step > 0 && step < TOTAL_STEPS && (
         <div className="sticky bottom-0 glass px-5 py-4 safe-bottom">
           <GradientButton onClick={next} fullWidth>Continue →</GradientButton>
         </div>
@@ -414,11 +532,11 @@ export function Onboarding({ onComplete }: OnboardingProps) {
   );
 }
 
-function StepHeader({ num, title }: { num: number; title: string }) {
+function StepHeader({ title, subtitle }: { title: string; subtitle: string }) {
   return (
     <div className="mb-2">
-      <div className="text-xs font-mono text-ft-cyan mb-1">Step {num}</div>
-      <h2 className="font-heading text-3xl">{title}</h2>
+      <div className="text-xs font-mono text-ft-cyan mb-1">{title}</div>
+      <h2 className="font-heading text-3xl">{subtitle}</h2>
     </div>
   );
 }

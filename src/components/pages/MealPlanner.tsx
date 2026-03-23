@@ -1,19 +1,22 @@
 import { useState } from 'react';
-import { AIPlan, Meal } from '@/types/fitness';
-import { Check } from 'lucide-react';
+import { AIPlan, DailyData, Meal } from '@/types/fitness';
+import { Check, BookOpen } from 'lucide-react';
 
 interface MealPlannerProps {
   plan: AIPlan;
+  daily: DailyData;
+  onToggleMeal: (id: string) => void;
+  onNavigate?: (page: string, context?: string) => void;
 }
 
-export function MealPlanner({ plan }: MealPlannerProps) {
+export function MealPlanner({ plan, daily, onToggleMeal, onNavigate }: MealPlannerProps) {
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
   const todayIndex = new Date().getDay();
   const todayName = days[(todayIndex + 6) % 7];
   const [selectedDay, setSelectedDay] = useState(todayName);
   const [crossedOff, setCrossedOff] = useState<Record<string, boolean>>({});
 
-  // Get meals for selected day - try weeklyMealPlan first, then fallback to base meals
+  const isToday = selectedDay === todayName;
   const dayMeals = plan.weeklyMealPlan?.[selectedDay] || plan.meals || [];
 
   // Build grocery list from all weekly meals
@@ -63,7 +66,7 @@ export function MealPlanner({ plan }: MealPlannerProps) {
       {/* Day indicator */}
       <div className="text-center">
         <h3 className="font-heading text-2xl">{selectedDay}</h3>
-        {selectedDay === todayName && (
+        {isToday && (
           <span className="text-xs text-ft-cyan font-mono">TODAY</span>
         )}
         <p className="font-mono text-sm text-muted-foreground mt-1">
@@ -75,13 +78,31 @@ export function MealPlanner({ plan }: MealPlannerProps) {
       {dayMeals.length > 0 ? (
         <div className="space-y-3">
           {dayMeals.map((meal, i) => (
-            <div key={meal.id || i} className="ft-card">
-              <div className="flex justify-between items-baseline mb-1">
-                <span className="font-medium">{meal.name}</span>
-                <span className="font-mono text-xs text-muted-foreground">{meal.time}</span>
+            <div key={meal.id || i} className={`ft-card transition-all ${isToday && daily.meals[meal.id] ? 'border-accent/50 bg-accent/5' : ''}`}>
+              <div className="flex items-start gap-3">
+                {isToday && (
+                  <button onClick={() => onToggleMeal(meal.id)}
+                    className={`mt-0.5 h-6 w-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${daily.meals[meal.id] ? 'border-accent bg-accent' : 'border-border'}`}>
+                    {daily.meals[meal.id] && <Check className="h-3.5 w-3.5 text-background" />}
+                  </button>
+                )}
+                <div className="flex-1 min-w-0">
+                  <div className="flex justify-between items-baseline mb-1">
+                    <span className="font-medium">{meal.name}</span>
+                    <span className="font-mono text-xs text-muted-foreground">{meal.time}</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground">{meal.foods}</p>
+                  <div className="flex items-center justify-between mt-1">
+                    <span className="font-mono text-xs text-ft-cyan">{meal.calories} kcal</span>
+                    <button
+                      onClick={() => onNavigate?.('recipes', meal.foods?.split(/[+,]/)?.[0]?.trim())}
+                      className="flex items-center gap-1 text-xs text-primary hover:underline"
+                    >
+                      <BookOpen className="h-3 w-3" /> Recipe
+                    </button>
+                  </div>
+                </div>
               </div>
-              <p className="text-sm text-muted-foreground">{meal.foods}</p>
-              <span className="font-mono text-xs text-ft-cyan">{meal.calories} kcal</span>
             </div>
           ))}
         </div>

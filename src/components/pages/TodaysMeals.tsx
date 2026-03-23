@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { AIPlan, DailyData, Meal } from '@/types/fitness';
 import { ProgressBar } from '@/components/shared/ProgressBar';
-import { Check, Plus, X, Edit2 } from 'lucide-react';
+import { Check, Plus, X, Edit2, BookOpen } from 'lucide-react';
 
 interface TodaysMealsProps {
   plan: AIPlan;
@@ -11,15 +11,22 @@ interface TodaysMealsProps {
   onAddCustomMeal?: (meal: Meal) => void;
   onRemoveCustomMeal?: (id: string) => void;
   onEditMeal?: (id: string, updates: Partial<Meal>) => void;
+  onNavigate?: (page: string, context?: string) => void;
 }
 
-export function TodaysMeals({ plan, daily, onToggleMeal, onToggleHabit, onAddCustomMeal, onRemoveCustomMeal, onEditMeal }: TodaysMealsProps) {
+export function TodaysMeals({ plan, daily, onToggleMeal, onToggleHabit, onAddCustomMeal, onRemoveCustomMeal, onEditMeal, onNavigate }: TodaysMealsProps) {
   const [showAdd, setShowAdd] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [newMeal, setNewMeal] = useState({ name: '', time: '', calories: 0, foods: '' });
   const [editMeal, setEditMealState] = useState({ name: '', time: '', calories: 0, foods: '' });
 
-  const allMeals = [...plan.meals, ...(daily.customMeals || [])];
+  // Use today's weeklyMealPlan instead of base meals
+  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  const todayIndex = new Date().getDay();
+  const todayName = days[(todayIndex + 6) % 7];
+  const todayMeals = plan.weeklyMealPlan?.[todayName] || plan.meals;
+
+  const allMeals = [...todayMeals, ...(daily.customMeals || [])];
   const checkedCount = allMeals.filter(m => daily.meals[m.id]).length;
   const caloriesConsumed = allMeals
     .filter(m => daily.meals[m.id])
@@ -126,7 +133,15 @@ export function TodaysMeals({ plan, daily, onToggleMeal, onToggleHabit, onAddCus
                     </div>
                   </div>
                   <div className="text-sm text-muted-foreground mt-0.5">{meal.foods}</div>
-                  <div className="font-mono text-xs text-ft-cyan mt-1">{meal.calories} kcal</div>
+                  <div className="flex items-center justify-between mt-1">
+                    <span className="font-mono text-xs text-ft-cyan">{meal.calories} kcal</span>
+                    <button
+                      onClick={() => onNavigate?.('recipes', meal.foods?.split(/[+,]/)?.[0]?.trim())}
+                      className="flex items-center gap-1 text-xs text-primary hover:underline"
+                    >
+                      <BookOpen className="h-3 w-3" /> Recipe
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
