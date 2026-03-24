@@ -193,6 +193,6 @@ export function useFitData() {
     // Multi-profile
     profiles: meta.profiles,
     activeProfileId: meta.activeProfileId,
-    addProfile, switchProfile, goToProfilePicker,
+    addProfile, switchProfile, deleteProfile, editProfile, goToProfilePicker,
   };
 }
