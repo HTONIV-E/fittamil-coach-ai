@@ -56,6 +56,8 @@ const Index = () => {
         profiles={data.profiles}
         onSelectProfile={data.switchProfile}
         onAddProfile={data.addProfile}
+        onDeleteProfile={data.deleteProfile}
+        onEditProfile={data.editProfile}
       />
     );
   }

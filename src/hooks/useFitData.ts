@@ -155,6 +155,21 @@ export function useFitData() {
     setMeta(prev => ({ ...prev, activeProfileId: id }));
   }, [setMeta]);
 
+  const deleteProfile = useCallback((id: number) => {
+    window.localStorage.removeItem(getStorageKey(id));
+    setMeta(prev => {
+      const remaining = prev.profiles.filter(p => p.id !== id);
+      return { profiles: remaining, activeProfileId: null };
+    });
+  }, [setMeta]);
+
+  const editProfile = useCallback((id: number, name: string, emoji: string) => {
+    setMeta(prev => ({
+      ...prev,
+      profiles: prev.profiles.map(p => p.id === id ? { ...p, name, emoji } : p),
+    }));
+  }, [setMeta]);
+
   const goToProfilePicker = useCallback(() => {
     setMeta(prev => ({ ...prev, activeProfileId: null }));
   }, [setMeta]);
@@ -178,6 +193,6 @@ export function useFitData() {
     // Multi-profile
     profiles: meta.profiles,
     activeProfileId: meta.activeProfileId,
-    addProfile, switchProfile, goToProfilePicker,
+    addProfile, switchProfile, deleteProfile, editProfile, goToProfilePicker,
   };
 }
