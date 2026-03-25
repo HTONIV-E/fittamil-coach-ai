@@ -144,6 +144,14 @@ const Index = () => {
     toast.success('Meal updated');
   };
 
+  const handleSwapMeal = (oldId: string, newMeal: Meal) => {
+    data.updateDaily(d => ({
+      ...d,
+      mealEdits: { ...(d.mealEdits || {}), [oldId]: newMeal },
+    }));
+    toast.success(`Swapped to ${newMeal.name}`);
+  };
+
   const handleRegenerate = async () => {
     toast.loading('Regenerating your plan with AI...', { id: 'regen' });
     try {
@@ -175,15 +183,18 @@ const Index = () => {
     switch (page) {
       case 'dashboard':
         return <Dashboard plan={plan} daily={daily} streak={data.streak} profile={profile}
-          onNavigate={handleNavigate} onLogWeight={() => handleNavigate('profile')} />;
+          onNavigate={handleNavigate} onLogWeight={() => handleNavigate('profile')}
+          weekMeals={data.weekMeals} workoutHistory={data.workoutHistory}
+          bmiHistory={data.bmiHistory} dailySummary={dailySummary} planSummary={planSummary} />;
       case 'myplan':
         return <MyPlan plan={plan} onRegenerate={handleRegenerate} />;
       case 'meals':
-        return <TodaysMeals plan={plan} daily={daily} onToggleMeal={handleToggleMeal} onToggleHabit={handleToggleHabit}
+        return <TodaysMeals plan={plan} daily={daily} profile={profile} onToggleMeal={handleToggleMeal} onToggleHabit={handleToggleHabit}
           onAddCustomMeal={handleAddCustomMeal} onRemoveCustomMeal={handleRemoveCustomMeal} onEditMeal={handleEditMeal}
-          onNavigate={handleNavigate} />;
+          onSwapMeal={handleSwapMeal} onNavigate={handleNavigate} />;
       case 'mealplanner':
-        return <MealPlanner plan={plan} daily={daily} onToggleMeal={handleToggleMeal} onNavigate={handleNavigate} />;
+        return <MealPlanner plan={plan} daily={daily} profile={profile} onToggleMeal={handleToggleMeal}
+          onSwapMeal={handleSwapMeal} onNavigate={handleNavigate} />;
       case 'recipes':
         return <Recipes initialSearch={recipeContext} />;
       case 'workout':
