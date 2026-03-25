@@ -8,3 +8,12 @@ verify_jwt = false
 
 [functions.analyse-day]
 verify_jwt = false
+
+[functions.meal-swap]
+verify_jwt = false
+
+[functions.weekly-insights]
+verify_jwt = false
+
+[functions.daily-tip]
+verify_jwt = false

@@ -1,26 +1,29 @@
 import { useState } from 'react';
-import { AIPlan, DailyData, Meal } from '@/types/fitness';
+import { AIPlan, DailyData, Meal, UserProfile } from '@/types/fitness';
 import { ProgressBar } from '@/components/shared/ProgressBar';
-import { Check, Plus, X, Edit2, BookOpen } from 'lucide-react';
+import { Check, Plus, X, Edit2, BookOpen, RefreshCw, Loader2 } from 'lucide-react';
+import { useMealSwap } from '@/hooks/useMealSwap';
 
 interface TodaysMealsProps {
   plan: AIPlan;
   daily: DailyData;
+  profile: UserProfile;
   onToggleMeal: (id: string) => void;
   onToggleHabit: (habit: string) => void;
   onAddCustomMeal?: (meal: Meal) => void;
   onRemoveCustomMeal?: (id: string) => void;
   onEditMeal?: (id: string, updates: Partial<Meal>) => void;
+  onSwapMeal?: (oldId: string, newMeal: Meal) => void;
   onNavigate?: (page: string, context?: string) => void;
 }
 
-export function TodaysMeals({ plan, daily, onToggleMeal, onToggleHabit, onAddCustomMeal, onRemoveCustomMeal, onEditMeal, onNavigate }: TodaysMealsProps) {
+export function TodaysMeals({ plan, daily, profile, onToggleMeal, onToggleHabit, onAddCustomMeal, onRemoveCustomMeal, onEditMeal, onSwapMeal, onNavigate }: TodaysMealsProps) {
   const [showAdd, setShowAdd] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [newMeal, setNewMeal] = useState({ name: '', time: '', calories: 0, foods: '' });
   const [editMeal, setEditMealState] = useState({ name: '', time: '', calories: 0, foods: '' });
+  const { swaps, loading: swapLoading, swappingMealId, fetchSwaps, clearSwaps } = useMealSwap();
 
-  // Use today's weeklyMealPlan instead of base meals
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
   const todayIndex = new Date().getDay();
   const todayName = days[(todayIndex + 6) % 7];
@@ -48,6 +51,19 @@ export function TodaysMeals({ plan, daily, onToggleMeal, onToggleHabit, onAddCus
   const saveEdit = (id: string) => {
     onEditMeal?.(id, editMeal);
     setEditingId(null);
+  };
+
+  const handleSwapSelect = (mealId: string, swap: any) => {
+    const newMealObj: Meal = {
+      id: mealId,
+      name: swap.name,
+      time: swap.time,
+      calories: swap.calories,
+      foods: swap.foods,
+      done: false,
+    };
+    onSwapMeal?.(mealId, newMealObj);
+    clearSwaps();
   };
 
   return (
@@ -93,56 +109,83 @@ export function TodaysMeals({ plan, daily, onToggleMeal, onToggleHabit, onAddCus
       {/* Meal list */}
       <div className="space-y-3">
         {allMeals.map(meal => (
-          <div key={meal.id} className={`ft-card transition-all ${daily.meals[meal.id] ? 'border-accent/50 bg-accent/5' : ''}`}>
-            {editingId === meal.id ? (
-              <div className="space-y-2">
-                <input value={editMeal.name} onChange={e => setEditMealState(p => ({ ...p, name: e.target.value }))}
-                  className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus:border-primary focus:outline-none" />
-                <input value={editMeal.foods} onChange={e => setEditMealState(p => ({ ...p, foods: e.target.value }))}
-                  className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus:border-primary focus:outline-none" />
-                <div className="flex gap-2">
-                  <input type="number" value={editMeal.calories} onChange={e => setEditMealState(p => ({ ...p, calories: Number(e.target.value) }))}
-                    className="flex-1 rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus:border-primary focus:outline-none" />
-                  <input value={editMeal.time} onChange={e => setEditMealState(p => ({ ...p, time: e.target.value }))}
-                    className="flex-1 rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus:border-primary focus:outline-none" />
+          <div key={meal.id}>
+            <div className={`ft-card transition-all ${daily.meals[meal.id] ? 'border-accent/50 bg-accent/5' : ''}`}>
+              {editingId === meal.id ? (
+                <div className="space-y-2">
+                  <input value={editMeal.name} onChange={e => setEditMealState(p => ({ ...p, name: e.target.value }))}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus:border-primary focus:outline-none" />
+                  <input value={editMeal.foods} onChange={e => setEditMealState(p => ({ ...p, foods: e.target.value }))}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus:border-primary focus:outline-none" />
+                  <div className="flex gap-2">
+                    <input type="number" value={editMeal.calories} onChange={e => setEditMealState(p => ({ ...p, calories: Number(e.target.value) }))}
+                      className="flex-1 rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus:border-primary focus:outline-none" />
+                    <input value={editMeal.time} onChange={e => setEditMealState(p => ({ ...p, time: e.target.value }))}
+                      className="flex-1 rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus:border-primary focus:outline-none" />
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => saveEdit(meal.id)} className="text-xs text-primary font-medium">Save</button>
+                    <button onClick={() => setEditingId(null)} className="text-xs text-muted-foreground">Cancel</button>
+                  </div>
                 </div>
-                <div className="flex gap-2">
-                  <button onClick={() => saveEdit(meal.id)} className="text-xs text-primary font-medium">Save</button>
-                  <button onClick={() => setEditingId(null)} className="text-xs text-muted-foreground">Cancel</button>
-                </div>
-              </div>
-            ) : (
-              <div className="flex items-start gap-3">
-                <button onClick={() => onToggleMeal(meal.id)}
-                  className={`mt-0.5 h-6 w-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${daily.meals[meal.id] ? 'border-accent bg-accent' : 'border-border'}`}>
-                  {daily.meals[meal.id] && <Check className="h-3.5 w-3.5 text-background" />}
-                </button>
-                <div className="flex-1 min-w-0">
-                  <div className="flex justify-between items-baseline">
-                    <span className="font-medium">{meal.name}</span>
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-xs text-muted-foreground">{meal.time}</span>
-                      <button onClick={() => startEdit(meal)} className="text-muted-foreground hover:text-primary">
-                        <Edit2 className="h-3.5 w-3.5" />
-                      </button>
-                      {meal.id.startsWith('custom-') && (
-                        <button onClick={() => onRemoveCustomMeal?.(meal.id)} className="text-destructive">
-                          <X className="h-3.5 w-3.5" />
+              ) : (
+                <div className="flex items-start gap-3">
+                  <button onClick={() => onToggleMeal(meal.id)}
+                    className={`mt-0.5 h-6 w-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${daily.meals[meal.id] ? 'border-accent bg-accent' : 'border-border'}`}>
+                    {daily.meals[meal.id] && <Check className="h-3.5 w-3.5 text-background" />}
+                  </button>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex justify-between items-baseline">
+                      <span className="font-medium">{meal.name}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-xs text-muted-foreground">{meal.time}</span>
+                        <button onClick={() => fetchSwaps(meal, profile)}
+                          className="text-muted-foreground hover:text-ft-cyan" title="Swap meal">
+                          {swapLoading && swappingMealId === meal.id
+                            ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            : <RefreshCw className="h-3.5 w-3.5" />}
                         </button>
-                      )}
+                        <button onClick={() => startEdit(meal)} className="text-muted-foreground hover:text-primary">
+                          <Edit2 className="h-3.5 w-3.5" />
+                        </button>
+                        {meal.id.startsWith('custom-') && (
+                          <button onClick={() => onRemoveCustomMeal?.(meal.id)} className="text-destructive">
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-sm text-muted-foreground mt-0.5">{meal.foods}</div>
+                    <div className="flex items-center justify-between mt-1">
+                      <span className="font-mono text-xs text-ft-cyan">{meal.calories} kcal</span>
+                      <button
+                        onClick={() => onNavigate?.('recipes', meal.foods?.split(/[+,]/)?.[0]?.trim())}
+                        className="flex items-center gap-1 text-xs text-primary hover:underline"
+                      >
+                        <BookOpen className="h-3 w-3" /> Recipe
+                      </button>
                     </div>
                   </div>
-                  <div className="text-sm text-muted-foreground mt-0.5">{meal.foods}</div>
-                  <div className="flex items-center justify-between mt-1">
-                    <span className="font-mono text-xs text-ft-cyan">{meal.calories} kcal</span>
-                    <button
-                      onClick={() => onNavigate?.('recipes', meal.foods?.split(/[+,]/)?.[0]?.trim())}
-                      className="flex items-center gap-1 text-xs text-primary hover:underline"
-                    >
-                      <BookOpen className="h-3 w-3" /> Recipe
-                    </button>
-                  </div>
                 </div>
+              )}
+            </div>
+
+            {/* Swap suggestions */}
+            {swappingMealId === meal.id && swaps.length > 0 && (
+              <div className="ml-4 mt-2 space-y-2">
+                <div className="text-xs font-semibold text-muted-foreground">🔄 Swap Suggestions:</div>
+                {swaps.map((swap, i) => (
+                  <button key={i} onClick={() => handleSwapSelect(meal.id, swap)}
+                    className="w-full ft-card text-left hover:border-ft-cyan/50 transition-colors p-3">
+                    <div className="flex justify-between items-baseline">
+                      <span className="text-sm font-medium">{swap.name}</span>
+                      <span className="font-mono text-xs text-ft-cyan">{swap.calories} kcal</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">{swap.foods}</p>
+                    <p className="text-xs text-ft-emerald mt-1">{swap.reason}</p>
+                  </button>
+                ))}
+                <button onClick={clearSwaps} className="text-xs text-muted-foreground">Dismiss</button>
               </div>
             )}
           </div>
