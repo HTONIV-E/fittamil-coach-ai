@@ -144,6 +144,14 @@ const Index = () => {
     toast.success('Meal updated');
   };
 
+  const handleSwapMeal = (oldId: string, newMeal: Meal) => {
+    data.updateDaily(d => ({
+      ...d,
+      mealEdits: { ...(d.mealEdits || {}), [oldId]: newMeal },
+    }));
+    toast.success(`Swapped to ${newMeal.name}`);
+  };
+
   const handleRegenerate = async () => {
     toast.loading('Regenerating your plan with AI...', { id: 'regen' });
     try {
